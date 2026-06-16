@@ -1,0 +1,362 @@
+{
+  "name": "First Choice Bank - Daily Operations Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -256,
+        0
+      ],
+      "id": "dd4bcc11-be19-4072-9920-6ca23f88e104",
+      "name": "Daily 8am Trigger"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Z3VaWFAVTcCs8YZdlU-ZUc3_-It2AzHmThkgcLNK0Yc",
+          "mode": "list",
+          "cachedResultName": "Daily Ops Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Z3VaWFAVTcCs8YZdlU-ZUc3_-It2AzHmThkgcLNK0Yc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Z3VaWFAVTcCs8YZdlU-ZUc3_-It2AzHmThkgcLNK0Yc/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Date",
+              "lookupValue": "={{ $today.minus({days: 1}).toFormat('yyyy-MM-dd') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "0c79f95e-4f58-414e-959d-e246364d17f7",
+      "name": "Fetch Yesterday's Ops Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "o1UNSHmCTYHedUM9",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "admin-alert",
+          "mode": "name"
+        },
+        "text": "=⚠️ *Daily Ops Report — Data Validation Failed!*  \nThe report could not be generated because the date field is missing or invalid.  \nPlease check the Daily Ops Data Google Sheet and fix the data immediately! \nTime: {{ $now }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        640,
+        64
+      ],
+      "id": "1926a060-39e2-4711-8b4f-cdb3a368dd83",
+      "name": "Alert the Admin for Invalid Data",
+      "webhookId": "da4e81ae-25dd-4857-8c66-b81bb4c423b3",
+      "credentials": {
+        "slackApi": {
+          "id": "Hhbj4uTRgR73NrAE",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get clean data from previous node\nconst data = $input.first().json;\n\n// Format date nicely\nconst reportDate = data.date;\n\n// Build Markdown table for Slack\nconst markdownReport = `📊 *First Choice Bank — Daily Operations Report*\n*Date: ${reportDate}*\n\n| Metric | Count |\n|---|---|\n| 🎫 Chatbot Tickets | ${data.tickets} |\n| 📞 Voice Agent Calls | ${data.calls} |\n| 😠 Complaints | ${data.complaints} |\n| ⚠️ SLA Breaches | ${data.sla_breaches} |\n\n_Powered by IGC Automation_ 🤖`;\n\n// Build summary prompt for AI Agent\nconst summaryPrompt = `You are a bank operations analyst.\nWrite exactly ONE sentence summarizing this data:\n- Chatbot Tickets: ${data.tickets}\n- Voice Agent Calls: ${data.calls}\n- Complaints: ${data.complaints}\n- SLA Breaches: ${data.sla_breaches}\n\nFocus on the most critical metric.\nBe professional and concise.`;\n\n// Return formatted data\nreturn [{\njson: {\n...data,\nmarkdown_report: markdownReport,\nsummary_prompt: summaryPrompt,\nreport_date: reportDate\n}\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -256
+      ],
+      "id": "38b90875-9e5f-4879-99b4-395bc23a0358",
+      "name": "Format Report as a Markdown Table for Slack"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Get incoming data from Google Sheets\nconst data = $input.first().json;\n\n// Clean and fill missing values\n// If a field is empty, null or undefined\n// replace it with a default value\n\nconst date = data.Date || 'Unknown';\nconst tickets = data.Tickets !== '' &&\ndata.Tickets !== null &&\ndata.Tickets !== undefined\n? Number(data.Tickets) : 0;\n\nconst calls = data.Calls !== '' &&\ndata.Calls !== null &&\ndata.Calls !== undefined\n? Number(data.Calls) : 0;\n\nconst complaints = data.Complaints !== '' &&\ndata.Complaints !== null &&\ndata.Complaints !== undefined\n? Number(data.Complaints) : 0;\n\nconst sla_breaches = data.SLA_Breaches !== '' &&\ndata.SLA_Breaches !== null &&\ndata.SLA_Breaches !== undefined\n? Number(data.SLA_Breaches) : 0;\n\n// Return clean data\nreturn [{\njson: {\ndate,\ntickets,\ncalls,\ncomplaints,\nsla_breaches,\nis_sanitized: true\n}\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        -176
+      ],
+      "id": "906f2c0a-8e42-4b4b-8a39-17d0133d9214",
+      "name": "Sanitize and Clean Data"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -96
+      ],
+      "id": "84bf8920-9839-4a69-afd3-2e778a86f209",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "cFvz2UxzpEwJsBe8",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        -48
+      ],
+      "id": "a84c1873-8dac-46dc-b9c8-f491a3d10a61",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.summary_prompt }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        816,
+        -256
+      ],
+      "id": "2d49bb02-99c1-402a-b676-a78d149fcc3f",
+      "name": "Daily Report Summarizer",
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "daily-ops-report-team",
+          "mode": "name"
+        },
+        "messageType": "block",
+        "blocksUi": "={{ $json.markdown_report }}\n\n🧠 *AI Summary:*\n{{ $json.output }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1168,
+        -256
+      ],
+      "id": "2ddd9a51-29bf-4c97-911d-e6cf47abdb07",
+      "name": "Post Report to Daily Ops Report",
+      "webhookId": "eeccc9f5-bbce-465e-97d4-611ccdafc008",
+      "credentials": {
+        "slackApi": {
+          "id": "Hhbj4uTRgR73NrAE",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "Node 1: Sanitize & Clean Data (Code Node)\nReal world data from Google Sheets is rarely\nperfect. This node cleans the incoming data by:\n- Replacing empty/null values with 0\n- Converting text numbers to actual numbers\n- Flagging the data as sanitized\nWithout this step, empty cells would cause the\nentire workflow to crash or produce incorrect\nreports!\n\nNode 2: Validate Required Fields (IF Node)\nAfter cleaning, this node checks if the date\nfield exists and is valid. If the date is\nmissing or unknown, the report cannot be\naccurately generated. Invalid data is\nimmediately flagged and the admin team gets\nnotified via Slack before any further\nprocessing occurs.\n\nTogether these two nodes ensure that only\nclean, valid and reliable data reaches the\nreport generation stage! 💡"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        208,
+        -352
+      ],
+      "typeVersion": 1,
+      "id": "230ca968-282e-4119-b5bc-4de6d6b76fe6",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e3ab1aab-ec91-46f2-a2dc-1a51a3f327dd",
+              "leftValue": "={{ $json.date }}",
+              "rightValue": "Unknown",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        -176
+      ],
+      "id": "bff77daa-63a9-4128-bec0-898cb2d41fc0",
+      "name": "Validate Required Field Notes"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 8am Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Yesterday's Ops Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Yesterday's Ops Data": {
+      "main": [
+        [
+          {
+            "node": "Sanitize and Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize and Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Validate Required Field Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report as a Markdown Table for Slack": {
+      "main": [
+        [
+          {
+            "node": "Daily Report Summarizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Daily Report Summarizer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Daily Report Summarizer",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Report Summarizer": {
+      "main": [
+        [
+          {
+            "node": "Post Report to Daily Ops Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Required Field Notes": {
+      "main": [
+        [
+          {
+            "node": "Format Report as a Markdown Table for Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert the Admin for Invalid Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert the Admin for Invalid Data": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "MxPJ3y0lLnCVmW2n"
+  },
+  "versionId": "063c3c69-1574-4c4a-9956-e16479289754",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f59d3c6412a567dea0ec2ce4a30698f869f9d3cf393d4e6d0252bb8a448d0c92"
+  },
+  "id": "jWoE7bXyTScObgGG",
+  "tags": []
+}
